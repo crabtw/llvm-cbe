@@ -21,17 +21,15 @@ namespace llvm {
 
 struct CTargetMachine : public TargetMachine {
   CTargetMachine(const Target &T, const Triple &TargetTriple, StringRef CPU, StringRef FS,
-                 const TargetOptions &Options, Reloc::Model RM,
-                 CodeModel::Model CM, CodeGenOpt::Level OL)
+                 const TargetOptions &Options, Optional<Reloc::Model> RM,
+                 Optional<CodeModel::Model> CM, CodeGenOpt::Level OL, bool JIT)
     : TargetMachine(T, "", TargetTriple, CPU, FS, Options) { }
 
   /// Add passes to the specified pass manager to get the specified file
   /// emitted.  Typically this will involve several steps of code generation.
   bool addPassesToEmitFile(
     PassManagerBase &PM, raw_pwrite_stream &Out, CodeGenFileType FileType,
-    bool DisableVerify = true, AnalysisID StartBefore = nullptr,
-    AnalysisID StartAfter = nullptr, AnalysisID StopAfter = nullptr,
-    MachineFunctionInitializer *MFInitializer = nullptr) override;
+    bool DisableVerify = true, MachineModuleInfo *MMI = nullptr) override;
 
 };
 

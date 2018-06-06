@@ -16,9 +16,10 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/CodeGen/CommandFlags.def"
 #include "llvm/CodeGen/LinkAllAsmWriterComponents.h"
 #include "llvm/CodeGen/LinkAllCodegenComponents.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -98,7 +99,7 @@ GetFileNameRoot(const std::string &InputFilename) {
   return outputFilename;
 }
 
-static tool_output_file *GetOutputStream(const char *TargetName,
+static ToolOutputFile *GetOutputStream(const char *TargetName,
                                          Triple::OSType OS,
                                          const char *ProgName) {
   // If we don't yet have an output filename, make one.
@@ -149,8 +150,8 @@ static tool_output_file *GetOutputStream(const char *TargetName,
   sys::fs::OpenFlags OpenFlags = sys::fs::F_None;
   if (Binary)
     OpenFlags |= sys::fs::F_Text;
-  tool_output_file *FDOut = new tool_output_file(OutputFilename.c_str(), error,
-                                                 OpenFlags);
+  ToolOutputFile *FDOut = new ToolOutputFile(OutputFilename.c_str(), error,
+                                             OpenFlags);
   if (error) {
     errs() << error.message() << '\n';
     delete FDOut;
@@ -163,13 +164,13 @@ static tool_output_file *GetOutputStream(const char *TargetName,
 // main - Entry point for the llc compiler.
 //
 int main(int argc, char **argv) {
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
 
   // Enable debug stream buffering.
   EnableDebugBuffering = true;
 
-  LLVMContext &Context = getGlobalContext();
+  LLVMContext Context;
   llvm_shutdown_obj Y;  // Call llvm_shutdown() on exit.
 
   // Initialize targets first, so that --version shows registered targets.
@@ -189,7 +190,7 @@ int main(int argc, char **argv) {
   initializeCodeGen(*Registry);
   initializeLoopStrengthReducePass(*Registry);
   initializeLowerIntrinsicsPass(*Registry);
-  initializeUnreachableBlockElimPass(*Registry);
+  initializeUnreachableBlockElimLegacyPassPass(*Registry);
 
   // Register the target printer for --version.
   cl::AddExtraVersionPrinter(TargetRegistry::printRegisteredTargetsForVersion);
@@ -270,7 +271,6 @@ static int compileModule(char **argv, LLVMContext &Context) {
   }
 
   TargetOptions Options;
-  Options.LessPreciseFPMADOption = EnableFPMAD;
   Options.AllowFPOpFusion = FuseFPOps;
   Options.UnsafeFPMath = EnableUnsafeFPMath;
   Options.NoInfsFPMath = EnableNoInfsFPMath;
@@ -282,14 +282,13 @@ static int compileModule(char **argv, LLVMContext &Context) {
   Options.NoZerosInBSS = DontPlaceZerosInBSS;
   Options.GuaranteedTailCallOpt = EnableGuaranteedTailCallOpt;
   Options.StackAlignmentOverride = OverrideStackAlignment;
-  Options.PositionIndependentExecutable = EnablePIE;
   
   //Jackson Korba 9/30/14
   //OwningPtr<targetMachine>
   std::unique_ptr<TargetMachine>
     target(TheTarget->createTargetMachine(TheTriple.getTriple(),
                                           MCPU, FeaturesStr, Options,
-                                          RelocModel, CMModel, OLvl));
+                                          getRelocModel(), getCodeModel(), OLvl));
   assert(target.get() && "Could not allocate target machine!");
   assert(mod && "Should have exited after outputting help!");
   TargetMachine &Target = *target.get();
@@ -304,7 +303,7 @@ static int compileModule(char **argv, LLVMContext &Context) {
     Target.setMCUseLoc(false);  */
 
   //Jackson Korba 9/30/14 
-  std::unique_ptr<tool_output_file> Out
+  std::unique_ptr<ToolOutputFile> Out
     (GetOutputStream(TheTarget->getName(), TheTriple.getOS(), argv[0]));
   if (!Out) return 1;
 
@@ -325,29 +324,12 @@ static int compileModule(char **argv, LLVMContext &Context) {
   }
 
   {
-    AnalysisID StartAfterID = 0;
-    AnalysisID StopAfterID = 0;
-    const PassRegistry *PR = PassRegistry::getPassRegistry();
-    if (!StartAfter.empty()) {
-      const PassInfo *PI = PR->getPassInfo(StartAfter);
-      if (!PI) {
-        errs() << argv[0] << ": start-after pass is not registered.\n";
-        return 1;
-      }
-      StartAfterID = PI->getTypeInfo();
-    }
-    if (!StopAfter.empty()) {
-      const PassInfo *PI = PR->getPassInfo(StopAfter);
-      if (!PI) {
-        errs() << argv[0] << ": stop-after pass is not registered.\n";
-        return 1;
-      }
-      StopAfterID = PI->getTypeInfo();
-    }
+    MachineModuleInfo *MMI = new MachineModuleInfo(&Target);
+
+    PM.add(MMI);
 
     // Ask the target to add backend passes as necessary.
-    if (Target.addPassesToEmitFile(PM, Out->os(), FileType, NoVerify,
-                                   StartAfterID, StopAfterID)) {
+    if (Target.addPassesToEmitFile(PM, Out->os(), FileType, NoVerify, MMI)) {
       errs() << argv[0] << ": target does not support generation of this"
              << " file type!\n";
       return 1;
