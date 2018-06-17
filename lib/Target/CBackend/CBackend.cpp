@@ -21,7 +21,6 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Config/config.h"
 #include <algorithm>
 #include <cstdio>
 
@@ -655,15 +654,6 @@ static bool isFPCSafeToPrint(const ConstantFP *CFP) {
   APFloat APF = APFloat(CFP->getValueAPF());  // copy
   if (CFP->getType() == Type::getFloatTy(CFP->getContext()))
     APF.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven, &ignored);
-#if HAVE_PRINTF_A && ENABLE_CBE_PRINTF_A
-  char Buffer[100];
-  sprintf(Buffer, "%a", APF.convertToDouble());
-  if (!strncmp(Buffer, "0x", 2) ||
-      !strncmp(Buffer, "-0x", 3) ||
-      !strncmp(Buffer, "+0x", 3))
-    return APF.bitwiseIsEqual(APFloat(atof(Buffer)));
-  return false;
-#else
   std::string StrVal = ftostr(APF);
 
   while (StrVal[0] == ' ')
@@ -677,7 +667,6 @@ static bool isFPCSafeToPrint(const ConstantFP *CFP) {
     // Reparse stringized version!
     return APF.bitwiseIsEqual(APFloat(atof(StrVal.c_str())));
   return false;
-#endif
 }
 
 /// Print out the casting for a cast operation. This does the double casting
@@ -1015,15 +1004,8 @@ void CWriter::printConstant(Constant *CPV, enum OperandContext Context) {
             << " /*inf*/ ";
       } else {
         std::string Num;
-#if HAVE_PRINTF_A && ENABLE_CBE_PRINTF_A
-        // Print out the constant as a floating point number.
-        char Buffer[100];
-        sprintf(Buffer, "%a", V);
-        Num = Buffer;
-#else
         Num = ftostr(FPC->getValueAPF());
-#endif
-       Out << Num;
+        Out << Num;
       }
     }
     break;
