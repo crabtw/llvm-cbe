@@ -1506,7 +1506,7 @@ static void generateCompilerSpecificCode(raw_ostream& Out,
   Out << "#define __noreturn __declspec(noreturn)\n";
   Out << "#else\n";
   Out << "#define __noreturn __attribute__((noreturn))\n";
-  Out << "#define __forceinline __attribute__((always_inline))\n";
+  Out << "#define __forceinline __attribute__((always_inline)) inline\n";
   Out << "#endif\n\n";
 
   // Define NaN and Inf as GCC builtins if using GCC
@@ -1787,7 +1787,6 @@ void CWriter::generateHeader(Module &M) {
   Out << "#include <limits.h>\n";      // With overflow intrinsics support.
   Out << "#include <stdint.h>\n";      // Sized integer support
   Out << "#include <math.h>\n";        // definitions for some math functions and numeric constants
-  Out << "#include <APInt-C.h>\n";     // Implementations of many llvm intrinsics
   // Provide a definition for `bool' if not compiling with a C++ compiler.
   Out << "#ifndef __cplusplus\ntypedef unsigned char bool;\n#endif\n";
   Out << "\n";
@@ -4270,7 +4269,7 @@ void CWriter::printGEPExpression(Value *Ptr, gep_type_iterator I,
     // exposed, like a global, avoid emitting (&foo)[0], just emit foo instead.
     if (isAddressExposed(Ptr)) {
       writeOperandInternal(Ptr);
-    } else if (I != E && I.getIndexedType()->isStructTy()) {
+    } else if (I != E && I.isStruct()) {
       // If we didn't already emit the first operand, see if we can print it as
       // P->f instead of "P[0].f"
       writeOperand(Ptr);
@@ -4286,9 +4285,9 @@ void CWriter::printGEPExpression(Value *Ptr, gep_type_iterator I,
 
   for (; I != E; ++I) {
     assert(I.getOperand()->getType()->isIntegerTy()); // TODO: indexing a Vector with a Vector is valid, but we don't support it here
-    if (I.getIndexedType()->isStructTy()) {
+    if (I.isStruct()) {
       Out << ".field" << cast<ConstantInt>(I.getOperand())->getZExtValue();
-    } else if (I.getIndexedType()->isArrayTy()) {
+    } else if (I.isBoundedSequential()) {
       Out << ".array[";
       writeOperandWithCast(I.getOperand(), Instruction::GetElementPtr);
       Out << ']';

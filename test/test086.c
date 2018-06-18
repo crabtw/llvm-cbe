@@ -13,14 +13,16 @@
 //
 //===---------------------------------------------------------------------------===//
 
+#include <stdint.h>
+
 int main() {
 
   char inc0 = 0, inc1 = 0;
   int diff = 0, a = 100;
   int *p = &a;
-  inc0 =(int)p;
+  inc0 =(intptr_t)p;
   ++(*p++);  //++(*p++);
-  inc1 =(int)p;
+  inc1 =(intptr_t)p;
   diff =  inc1-inc0;
   diff += 2;
   return diff;

@@ -15,7 +15,7 @@ LLVMToolDir ?= .
 
 PYTHON = python
 CC = gcc
-CPPFLAGS = -Wall -Wno-unused-function -Wno-parentheses-equality -Wno-unused-variable -Wno-incompatible-library-redeclaration -Werror
+CPPFLAGS = -Wall -Wno-unused-function -Wno-parentheses-equality -Wno-unused-variable -Wno-incompatible-library-redeclaration -Wno-main -Werror
 FILES := $(patsubst %.c,%,$(filter-out %.cbe.c,$(wildcard *.c)))
 
 all: cexec buildcbe
@@ -39,7 +39,7 @@ tollvmO3: $(addsuffix _O3.ll,$(FILES))
 	clang $(CPPFLAGS) $< -emit-llvm -S -O3 -o $@
 
 tocbe: tocbeO0 tocbeO1 tocbeO2 tocbeO3
-tocbeO%: tollvmO%
+tocbeO%: tollvmO% $(LLVMToolDir)/llvm-cbe
 	rm -rf *_O$*.cbe.c
 	for name in $(FILES); do\
 		$(LLVMToolDir)/llvm-cbe $${name}_O$*.ll ; \
@@ -60,7 +60,7 @@ buildcbeO1 : $(addsuffix _O1.cbe,$(FILES))
 buildcbeO2 : $(addsuffix _O2.cbe,$(FILES))
 buildcbeO3 : $(addsuffix _O3.cbe,$(FILES))
 %.cbe : %.cbe.c
-	$(CC) $(CPPFLAGS) -o $@ -O$(shell echo $* | sed 's/^.*_O\([0-9]\)$$/\1/') $<
+	$(CC) $(CPPFLAGS) -Wno-unused-but-set-variable -o $@ -O$(shell echo $* | sed 's/^.*_O\([0-9]\)$$/\1/') $<
 
 #Make C-Based Executables
 cexec: $(addsuffix .cexe,$(FILES))
