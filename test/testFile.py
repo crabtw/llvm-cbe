@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 import os
 import re
 import subprocess
@@ -39,7 +39,7 @@ def genResults(fileExt, fl):
         cbe_res.append(res)
 
       if (res != 6 and res != 25):
-	catstring = names + ":\tFailure [" + str(res) + "]"
+        catstring = names + ":\tFailure [" + str(res) + "]"
         failure_list.append(catstring)
 
 def main():

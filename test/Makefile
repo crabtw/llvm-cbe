@@ -13,9 +13,9 @@
 
 LLVMToolDir ?= .
 
-PYTHON = python
-CC = gcc
-CPPFLAGS = -Wall -Wno-unused-function -Wno-parentheses-equality -Wno-unused-variable -Wno-incompatible-library-redeclaration -Wno-main -Werror
+PYTHON = python2
+CC = clang
+CPPFLAGS = -Wall -Wno-unused-function -Wno-parentheses-equality -Wno-unused-variable -Wno-incompatible-library-redeclaration -Wno-main-return-type -Werror
 FILES := $(patsubst %.c,%,$(filter-out %.cbe.c,$(wildcard *.c)))
 
 all: cexec buildcbe
@@ -60,7 +60,7 @@ buildcbeO1 : $(addsuffix _O1.cbe,$(FILES))
 buildcbeO2 : $(addsuffix _O2.cbe,$(FILES))
 buildcbeO3 : $(addsuffix _O3.cbe,$(FILES))
 %.cbe : %.cbe.c
-	$(CC) $(CPPFLAGS) -Wno-unused-but-set-variable -o $@ -O$(shell echo $* | sed 's/^.*_O\([0-9]\)$$/\1/') $<
+	$(CC) $(CPPFLAGS) -o $@ -O$(shell echo $* | sed 's/^.*_O\([0-9]\)$$/\1/') $<
 
 #Make C-Based Executables
 cexec: $(addsuffix .cexe,$(FILES))
